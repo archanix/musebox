@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MuseBox v4.20 - Seeded Composer</title>
+  <title>MuseBox v4.21 - Seeded Composer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -349,7 +349,7 @@
   <header class="topbar">
     <div class="brand">
       <button class="icon-btn ghost" id="toggleLeft" title="Show / hide controls panel" aria-label="Toggle controls panel"><svg class="ic"><use href="#i-panel"/></svg></button>
-      <span class="logo">MUSEBOX</span><span class="ver">v4.20</span>
+      <span class="logo">MUSEBOX</span><span class="ver">v4.21</span>
     </div>
 
     <div class="transport" role="group" aria-label="Transport">
@@ -2070,17 +2070,17 @@
     // akor vuruşunda tel çalgılarda strum (notalar ~14 ms arayla). Mikserdeki Cut = ton, Dec = sönme süresi çarpanı olarak çalışır.
     const INSTRUMENTS = {
       synth:    { name: 'Synth (default)' },
-      nylon:    { name: 'Nylon guitar', kind: 'ks', lo: 82, hi: 1175, w: 0.46, ring: 1.0, g: 1.15, strum: true },
-      harp:     { name: 'Harp', kind: 'ks', lo: 98, hi: 2600, w: 0.40, ring: 1.6, g: 1.1, strum: true },
-      kalimba:  { name: 'Kalimba', kind: 'kalimba', lo: 262, hi: 2093, ring: 1.3, g: 1.0 },
-      musicbox: { name: 'Music box', kind: 'musicbox', lo: 523, hi: 3136, ring: 1.4, g: 0.85 },
-      marimba:  { name: 'Marimba', kind: 'marimba', lo: 131, hi: 1568, ring: 0.7, g: 1.2 },
-      bell:     { name: 'Bell', kind: 'bell', lo: 262, hi: 2349, ring: 2.4, g: 0.8 },
+      nylon:    { name: 'Nylon guitar', kind: 'ks', lo: 82, hi: 1175, w: 0.46, ring: 1.0, g: 1.85, strum: true },
+      harp:     { name: 'Harp', kind: 'ks', lo: 98, hi: 2600, w: 0.40, ring: 1.6, g: 1.85, strum: true },
+      kalimba:  { name: 'Kalimba', kind: 'kalimba', lo: 262, hi: 2093, ring: 1.3, g: 1.5 },
+      musicbox: { name: 'Music box', kind: 'musicbox', lo: 523, hi: 3136, ring: 1.4, g: 1.3 },
+      marimba:  { name: 'Marimba', kind: 'marimba', lo: 131, hi: 1568, ring: 0.7, g: 1.4 },
+      bell:     { name: 'Bell', kind: 'bell', lo: 262, hi: 2349, ring: 2.4, g: 1.1 },
       flute:    { name: 'Flute', kind: 'flute', lo: 262, hi: 2093, g: 1.0 },
       epiano:   { name: 'Electric piano', kind: 'epiano', lo: 65, hi: 1760, g: 1.0 },
-      organ:    { name: 'Organ', kind: 'organ', lo: 65, hi: 1760, g: 0.8 },
+      organ:    { name: 'Organ', kind: 'organ', lo: 65, hi: 1760, g: 1.45 },
       // örnek tabanlı (ses paketi gerekir; kurulu değilse yedek olarak elektrikli piyano çalar)
-      piano:    { name: 'Grand piano', kind: 'sampler', pack: 'piano-kawai', fallback: 'epiano', lo: 27.5, hi: 4186, g: 1.0, rel: 0.4 }
+      piano:    { name: 'Grand piano', kind: 'sampler', pack: 'piano-kawai', fallback: 'epiano', lo: 27.5, hi: 4186, g: 5.0, rel: 0.4 }
     };
     // GM program numbers (MIDI dışa aktarmada kanalın çalgısı DAW'da doğru açılsın)
     const INST_GM = { nylon: 24, harp: 46, kalimba: 108, musicbox: 10, marimba: 12, bell: 14, flute: 73, epiano: 4, organ: 16, piano: 0 };
@@ -2224,7 +2224,7 @@
         const layers = {};
         for (const s of I.samples) { const ab = await storeGet(packKey(m.id, m.version, s.file)); if (!ab) throw new Error('Missing file ' + s.file); const buf = await dctx.decodeAudioData(ab.slice ? ab.slice(0) : ab); (layers[s.layer] = layers[s.layer] || []).push({ midi: s.midi, buf }); }
         const list = Object.keys(layers).map(k => ({ center: I.layers[k], notes: layers[k].sort((a, b) => a.midi - b.midi) })).sort((a, b) => a.center - b.center);
-        packs.buffers[I.id] = list; Object.assign(INSTRUMENTS[I.id], { name: I.name || INSTRUMENTS[I.id].name, g: I.gain || 1, rel: I.rel || 0.4 });
+        packs.buffers[I.id] = list; Object.assign(INSTRUMENTS[I.id], { name: I.name || INSTRUMENTS[I.id].name, rel: I.rel || 0.4 }); // ses seviyesi (g) kodda sabit: kurulu eski manifestler sesi değiştirmez
       }
       packs.installed[m.id] = m; if (typeof renderMixer === 'function') renderMixer(); if (typeof refreshInstUI === 'function') refreshInstUI(); if (typeof renderAbout === 'function') renderAbout();
     }
