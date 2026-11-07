@@ -1,0 +1,14 @@
+{
+ "packs": [
+  {
+   "id": "piano-kawai",
+   "version": 1,
+   "name": "Grand Piano (Kawai)",
+   "description": "Acoustic grand piano, 25 notes \u00d7 2 velocity layers.",
+   "bytes": 1542499,
+   "license": "CC0-1.0",
+   "attribution_required": false,
+   "path": "piano-kawai/1/"
+  }
+ ]
+}

@@ -1,0 +1,285 @@
+{
+ "id": "piano-kawai",
+ "version": 1,
+ "name": "Grand Piano (Kawai)",
+ "description": "Acoustic grand piano, 25 notes \u00d7 2 velocity layers.",
+ "bytes": 1542499,
+ "license": "CC0-1.0",
+ "attribution_required": false,
+ "credits": [
+  {
+   "name": "VCSL \u2013 Grand Piano, Kawai",
+   "author": "Versilian Studios LLC (Versilian Community Sample Library)",
+   "license": "CC0 1.0 (public domain dedication)",
+   "url": "https://github.com/sgossner/VCSL"
+  }
+ ],
+ "changes": "Trimmed to 5.5 s, converted to mono, normalized, encoded as MP3.",
+ "instruments": [
+  {
+   "id": "piano",
+   "name": "Grand piano",
+   "kind": "sampler",
+   "lo": 21,
+   "hi": 108,
+   "rel": 0.4,
+   "gain": 1.0,
+   "layers": {
+    "2": 0.45,
+    "4": 1.0
+   },
+   "samples": [
+    {
+     "midi": 22,
+     "layer": 2,
+     "file": "n22_v2.mp3"
+    },
+    {
+     "midi": 22,
+     "layer": 4,
+     "file": "n22_v4.mp3"
+    },
+    {
+     "midi": 27,
+     "layer": 2,
+     "file": "n27_v2.mp3"
+    },
+    {
+     "midi": 27,
+     "layer": 4,
+     "file": "n27_v4.mp3"
+    },
+    {
+     "midi": 30,
+     "layer": 2,
+     "file": "n30_v2.mp3"
+    },
+    {
+     "midi": 30,
+     "layer": 4,
+     "file": "n30_v4.mp3"
+    },
+    {
+     "midi": 33,
+     "layer": 2,
+     "file": "n33_v2.mp3"
+    },
+    {
+     "midi": 33,
+     "layer": 4,
+     "file": "n33_v4.mp3"
+    },
+    {
+     "midi": 36,
+     "layer": 2,
+     "file": "n36_v2.mp3"
+    },
+    {
+     "midi": 36,
+     "layer": 4,
+     "file": "n36_v4.mp3"
+    },
+    {
+     "midi": 39,
+     "layer": 2,
+     "file": "n39_v2.mp3"
+    },
+    {
+     "midi": 39,
+     "layer": 4,
+     "file": "n39_v4.mp3"
+    },
+    {
+     "midi": 42,
+     "layer": 2,
+     "file": "n42_v2.mp3"
+    },
+    {
+     "midi": 42,
+     "layer": 4,
+     "file": "n42_v4.mp3"
+    },
+    {
+     "midi": 45,
+     "layer": 2,
+     "file": "n45_v2.mp3"
+    },
+    {
+     "midi": 45,
+     "layer": 4,
+     "file": "n45_v4.mp3"
+    },
+    {
+     "midi": 48,
+     "layer": 2,
+     "file": "n48_v2.mp3"
+    },
+    {
+     "midi": 48,
+     "layer": 4,
+     "file": "n48_v4.mp3"
+    },
+    {
+     "midi": 52,
+     "layer": 2,
+     "file": "n52_v2.mp3"
+    },
+    {
+     "midi": 52,
+     "layer": 4,
+     "file": "n52_v4.mp3"
+    },
+    {
+     "midi": 56,
+     "layer": 2,
+     "file": "n56_v2.mp3"
+    },
+    {
+     "midi": 56,
+     "layer": 4,
+     "file": "n56_v4.mp3"
+    },
+    {
+     "midi": 60,
+     "layer": 2,
+     "file": "n60_v2.mp3"
+    },
+    {
+     "midi": 60,
+     "layer": 4,
+     "file": "n60_v4.mp3"
+    },
+    {
+     "midi": 64,
+     "layer": 2,
+     "file": "n64_v2.mp3"
+    },
+    {
+     "midi": 64,
+     "layer": 4,
+     "file": "n64_v4.mp3"
+    },
+    {
+     "midi": 68,
+     "layer": 2,
+     "file": "n68_v2.mp3"
+    },
+    {
+     "midi": 68,
+     "layer": 4,
+     "file": "n68_v4.mp3"
+    },
+    {
+     "midi": 72,
+     "layer": 2,
+     "file": "n72_v2.mp3"
+    },
+    {
+     "midi": 72,
+     "layer": 4,
+     "file": "n72_v4.mp3"
+    },
+    {
+     "midi": 76,
+     "layer": 2,
+     "file": "n76_v2.mp3"
+    },
+    {
+     "midi": 76,
+     "layer": 4,
+     "file": "n76_v4.mp3"
+    },
+    {
+     "midi": 80,
+     "layer": 2,
+     "file": "n80_v2.mp3"
+    },
+    {
+     "midi": 80,
+     "layer": 4,
+     "file": "n80_v4.mp3"
+    },
+    {
+     "midi": 84,
+     "layer": 2,
+     "file": "n84_v2.mp3"
+    },
+    {
+     "midi": 84,
+     "layer": 4,
+     "file": "n84_v4.mp3"
+    },
+    {
+     "midi": 87,
+     "layer": 2,
+     "file": "n87_v2.mp3"
+    },
+    {
+     "midi": 87,
+     "layer": 4,
+     "file": "n87_v4.mp3"
+    },
+    {
+     "midi": 90,
+     "layer": 2,
+     "file": "n90_v2.mp3"
+    },
+    {
+     "midi": 90,
+     "layer": 4,
+     "file": "n90_v4.mp3"
+    },
+    {
+     "midi": 93,
+     "layer": 2,
+     "file": "n93_v2.mp3"
+    },
+    {
+     "midi": 93,
+     "layer": 4,
+     "file": "n93_v4.mp3"
+    },
+    {
+     "midi": 96,
+     "layer": 2,
+     "file": "n96_v2.mp3"
+    },
+    {
+     "midi": 96,
+     "layer": 4,
+     "file": "n96_v4.mp3"
+    },
+    {
+     "midi": 99,
+     "layer": 2,
+     "file": "n99_v2.mp3"
+    },
+    {
+     "midi": 99,
+     "layer": 4,
+     "file": "n99_v4.mp3"
+    },
+    {
+     "midi": 105,
+     "layer": 2,
+     "file": "n105_v2.mp3"
+    },
+    {
+     "midi": 105,
+     "layer": 4,
+     "file": "n105_v4.mp3"
+    },
+    {
+     "midi": 108,
+     "layer": 2,
+     "file": "n108_v2.mp3"
+    },
+    {
+     "midi": 108,
+     "layer": 4,
+     "file": "n108_v4.mp3"
+    }
+   ]
+  }
+ ]
+}
