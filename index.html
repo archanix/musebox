@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MuseBox v4.24 - Seeded Composer</title>
+  <title>MuseBox v4.25 - Seeded Composer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -354,7 +354,7 @@
   <header class="topbar">
     <div class="brand">
       <button class="icon-btn ghost" id="toggleLeft" title="Show / hide controls panel" aria-label="Toggle controls panel"><svg class="ic"><use href="#i-panel"/></svg></button>
-      <span class="logo">MUSEBOX</span><span class="ver">v4.24</span>
+      <span class="logo">MUSEBOX</span><span class="ver">v4.25</span>
     </div>
 
     <div class="transport" role="group" aria-label="Transport">
@@ -1401,52 +1401,87 @@
     }
 
     // ---- melodi ----
-    function v2Motif(rng, style, tension, kind) {
+    // ---- Hook motoru v1 ----
+    // Araştırma (Jakubowski ve ark. 2016): akılda kalan melodiler hızlı, tanıdık bir genel şekle (yükselip düşen yay), ve ortalamadan farklı birkaç aralığa
+    // (beklenmedik sıçrama, tekrar eden nota) sahip. Hook = tanıdık şekil + bir sürpriz. Aday üret → puanla → seç.
+    // (Tam tekrar sonra değişim, ritmik imza ve drop öncesi nefes boşluğu şarkı yazarlığı pratiğidir; araştırmanın dışında, kulakla doğrulanır.)
+    function v2Pearson(a, b) { const n = a.length, ma = a.reduce((x, y) => x + y, 0) / n, mb = b.reduce((x, y) => x + y, 0) / n; let c = 0, va = 0, vb = 0; for (let i = 0; i < n; i++) { c += (a[i] - ma) * (b[i] - mb); va += (a[i] - ma) ** 2; vb += (b[i] - mb) ** 2; } return (va && vb) ? c / Math.sqrt(va * vb) : 0; }
+    function v2RhyGen(rng, hook, style) { // üretilen ritim hücresi: 3–7 vuruş, 1–4 adımlık aralıklar, çoğunlukla 0'da başlar
+      const n = hook ? 4 + Math.floor(rng() * 4) : 3 + Math.floor(rng() * 3), steps = style.dens < 0.8 ? [2, 3, 3, 4, 4, 5] : [1, 2, 2, 3, 3, 4], out = [];
+      let pos = rng() < 0.6 ? 0 : (rng() < 0.5 ? 2 : 3);
+      while (out.length < n && pos <= 14) { out.push(pos); pos += steps[Math.floor(rng() * steps.length)]; }
+      return out.length >= 3 ? out : [0, 4, 8];
+    }
+    function v2MotifCand(rng, style, kind) {
       const hook = kind === 'hook', pool = hook ? (style.dens > 1 ? [...V2_RHY.mid, ...V2_RHY.dense] : V2_RHY.mid) : (style.dens < 0.8 ? V2_RHY.sparse : [...V2_RHY.sparse, ...V2_RHY.mid]);
-      const rhy = pool[Math.floor(rng() * pool.length)].slice();
+      const rhy = rng() < 0.5 ? pool[Math.floor(rng() * pool.length)].slice() : v2RhyGen(rng, hook, style);
       if (rng() < style.sync) { const i = 1 + Math.floor(rng() * Math.max(1, rhy.length - 1)); if (rhy[i] !== undefined && rhy[i] % 2 === 0 && rhy[i] + 1 < 16 && rhy.indexOf(rhy[i] + 1) < 0) rhy[i] += 1; rhy.sort((a, b) => a - b); }
-      const con = [0];
-      for (let i = 1; i < rhy.length; i++) { const r = rng(), st = r < 0.3 ? 1 : r < 0.58 ? -1 : r < 0.7 ? 2 : r < 0.82 ? -2 : r < 0.86 ? 0 : r < 0.93 ? 3 : -3; con.push(v2clamp(con[i - 1] + st, -5, 5)); }
-      if (con.length > 3 && Math.max(...con) < 2) con[Math.floor(con.length / 2)] += 2; // belirgin bir zirve
+      const n = rhy.length, con = [0], peak = v2clamp(Math.round((0.35 + 0.4 * rng()) * (n - 1)), 1, Math.max(1, n - 2));
+      for (let i = 1; i < n; i++) { const toward = i <= peak ? 1 : -1; let st = rng() < 0.72 ? toward : (rng() < 0.5 ? 0 : -toward); if (rng() < 0.22) st *= 2; con.push(v2clamp(con[i - 1] + st, -5, 7)); }
+      if (hook && n >= 4 && rng() < 0.85) { // imza sıçraması: beşli/altılı, ardından adımla dönüş
+        const at = 1 + Math.floor(rng() * Math.min(3, n - 2)), dir = rng() < 0.7 ? 1 : -1, L = 4 + (rng() < 0.3 ? 1 : 0);
+        con[at] = v2clamp(con[at - 1] + dir * L, -6, 9);
+        for (let i = at + 1; i < n; i++) { const back = Math.sign(con[i - 1] - con[0]); con[i] = con[i - 1] - (back && rng() < 0.85 ? back : 0); }
+      }
+      if (hook && n >= 4 && rng() < 0.7) { const at = 1 + Math.floor(rng() * (n - 2)); if (Math.abs(con[at] - con[at - 1]) < 4) con[at] = con[at - 1]; } // tekrar eden nota
       return { rhy, con };
+    }
+    function v2HookScore(m, kind) {
+      const c = m.con, n = c.length; if (n < 3) return -9;
+      const corr = v2Pearson(c, c.map((_, i) => Math.sin(Math.PI * i / (n - 1))));
+      let leaps = 0, reps = 0, big = 0; for (let i = 1; i < n; i++) { const d = Math.abs(c[i] - c[i - 1]); if (d >= 4) leaps++; if (d === 0) reps++; if (d >= 7) big++; }
+      const range = Math.max(...c) - Math.min(...c), offs = m.rhy.filter(s => s % 4 !== 0).length / n, iois = new Set(m.rhy.slice(1).map((s, i) => s - m.rhy[i])).size;
+      if (kind === 'verse') return 1.5 * corr + (leaps <= 1 ? 0.5 : -1) + (reps <= 1 ? 0.3 : -0.3) + (range <= 5 ? 0.5 : -0.5) + (iois >= 2 ? 0.3 : 0);
+      return 2 * corr + (leaps === 1 ? 1.5 : leaps === 2 ? 0.5 : leaps === 0 ? 0 : -1.2 * (leaps - 2)) + (reps >= 1 && reps <= 2 ? 1 : (reps === 0 ? 0 : -0.6)) + (range <= 7 ? 0.5 : -0.5 * (range - 7))
+        + (offs >= 0.25 && offs <= 0.6 ? 1 : 0) + (iois >= 2 ? 0.5 : 0) + (n >= 4 && n <= 7 ? 0.5 : 0) + ([-1, 0, 1, 2].includes(c[n - 1]) ? 0.5 : 0) + (m.rhy[0] === 0 ? 0.4 : 0) - big * 1.5;
+    }
+    function v2Motif(rng, style, tension, kind) { // 60 aday → en iyi 10 içinden tohumlu seçim
+      const cands = Array.from({ length: 60 }, () => { const m = v2MotifCand(rng, style, kind); return { m, sc: v2HookScore(m, kind) }; }).sort((a, b) => b.sc - a.sc);
+      const top = cands.slice(0, 10), w = top.map(t => Math.exp((t.sc - top[0].sc) * 0.6)), tot = w.reduce((a, b) => a + b, 0); let r = rng() * tot, k = 0;
+      while (k < top.length - 1 && r > w[k]) { r -= w[k]; k++; }
+      return Object.assign({}, top[k].m, { score: +top[k].sc.toFixed(2) });
     }
     function v2Transform(m, op) {
       let rhy = m.rhy.slice(), con = m.con.slice();
       if (op.frag) { const k = Math.max(2, Math.ceil(rhy.length * op.frag)); rhy = rhy.slice(0, k); con = con.slice(0, k); }
       if (op.inv) con = con.map(x => -x);
       if (op.aug) { const rr = [], cc = []; rhy.forEach((s, i) => { const t = Math.min(15, s * 2); if (!rr.includes(t)) { rr.push(t); cc.push(con[i]); } }); rhy = rr; con = cc; }
+      if (op.vary) { for (let i = Math.max(1, con.length - 2); i < con.length; i++) con[i] += op.vary; } // sonu değişen tekrar (A')
       if (op.seq) con = con.map(x => x + op.seq);
       return { rhy, con };
     }
     const v2Edge = I => I === 0 ? 0.9 : I <= 2 ? 0 : I <= 4 ? 0.35 : I <= 7 ? 1.2 : I <= 12 ? 2.6 : 5;
-    function v2MelodyBar(c, onsets, targets, center, prevPitch, cadence, rng, lo, hi) { // Viterbi: perde dizisi
+    function v2MelodyBar(c, onsets, targets, center, prevPitch, cadence, rng, lo, hi, free, wt) { // Viterbi: perde dizisi (free: imza sıçramasının geldiği nota, wt: hedef kontura bağlılık)
       const cand = []; for (let d = Math.max(-3, center - 6); d <= Math.min(16, center + 7); d++) cand.push(d);
       const n = onsets.length, best = [], back = [];
       for (let j = 0; j < n; j++) {
         best.push([]); back.push([]);
         const strong = onsets[j] % 8 === 0 ? 2 : (onsets[j] % 4 === 0 ? 1.2 : 0);
         for (let k = 0; k < cand.length; k++) {
-          const d = cand[k], ct = [0, 2, 4, 6].includes(v2mod7(d)), p = v2Pitch(c, d); let node = 1.1 * Math.abs(d - targets[j]);
+          const d = cand[k], ct = [0, 2, 4, 6].includes(v2mod7(d)), p = v2Pitch(c, d); let node = (wt || 1.1) * Math.abs(d - targets[j]);
           node += strong ? (ct ? 0 : 1.6 * strong) : (ct ? -0.1 : 0.15);
           if (cadence && j === n - 1) node += ct ? ([0, 2, 4].includes(v2mod7(d)) ? -0.6 : 0.4) : 5;
           if (p < lo) node += 0.5 * (lo - p); if (p > hi) node += 0.5 * (p - hi);
           node += (rng() - 0.5) * 0.3;
           if (j === 0) { best[j][k] = node + (prevPitch == null ? 0 : v2Edge(Math.abs(p - prevPitch))); back[j][k] = -1; }
-          else { let bv = 1e9, bi = 0; for (let k2 = 0; k2 < cand.length; k2++) { const v = best[j - 1][k2] + v2Edge(Math.abs(p - v2Pitch(c, cand[k2]))); if (v < bv) { bv = v; bi = k2; } } best[j][k] = bv + node; back[j][k] = bi; }
+          else { let bv = 1e9, bi = 0; for (let k2 = 0; k2 < cand.length; k2++) { const I = Math.abs(p - v2Pitch(c, cand[k2])), v = best[j - 1][k2] + ((j === free && I >= 5) ? 0.4 : v2Edge(I)); if (v < bv) { bv = v; bi = k2; } } best[j][k] = bv + node; back[j][k] = bi; }
         }
       }
       let k = 0; for (let i = 1; i < cand.length; i++) if (best[n - 1][i] < best[n - 1][k]) k = i;
       const out = new Array(n); for (let j = n - 1; j >= 0; j--) { out[j] = cand[k]; k = back[j][k]; }
       return out;
     }
-    function v2LeadPlan(type, H, V, rng, style, tension) { // 4 barlık frazın bar planı: { m: motif, cad: kadans, quiet }
+    function v2LeadPlan(type, H, V, rng, style, tension, visit) { // 4 barlık frazın bar planı: { m: motif, cad: kadans, quiet, hook }
       const T = (m, op) => v2Transform(m, op || {}), N = () => v2Motif(rng, style, tension, 'verse');
       switch (type) {
-        case 'drop': return [{ m: T(H) }, { m: T(H, { seq: 1 }) }, { m: N() }, { m: T(H, { frag: 0.7 }), cad: true }];
-        case 'buildup': return [{ m: T(H, { frag: 0.5 }) }, { m: T(H, { frag: 0.6, seq: 1 }) }, { m: T(H, { seq: 2 }) }, { m: { rhy: [0, 2, 4, 6, 8, 10, 12, 14], con: [0, 1, 1, 2, 3, 3, 4, 5] } }];
-        case 'intro': return [{ m: T(V, { aug: 1 }), quiet: 1 }, { m: T(V, { aug: 1, seq: 1 }), quiet: 1 }, { m: T(V, { aug: 1 }), quiet: 1 }, { m: T(V, { aug: 1, frag: 0.5 }), cad: true, quiet: 1 }];
+        case 'drop': return visit ? // 2. ve sonraki drop: hook yine tam, bar 3'te zirveye taşınır
+          [{ m: T(H), hook: 1 }, { m: T(H), hook: 1 }, { m: T(H, { seq: 2, vary: 1 }), hook: 1 }, { m: T(H, { frag: 0.7 }), cad: true, hook: 1 }]
+          : [{ m: T(H), hook: 1 }, { m: T(H), hook: 1 }, { m: T(H, { vary: 2 }), hook: 1 }, { m: T(H, { frag: 0.7 }), cad: true, hook: 1 }];
+        case 'buildup': return [{ m: T(H, { frag: 0.5 }), hook: 1 }, { m: T(H, { frag: 0.6, seq: 1 }), hook: 1 }, { m: T(H, { seq: 2 }) },
+          { m: { rhy: [0, 2, 4, 6, 8, 10, 12], con: [0, 1, 1, 2, 3, 3, 4] } }]; // son barda son vuruş sessizlik: drop'a nefes (ters zil 12. adımda girer)
+        case 'intro': return [{ m: T(V, { aug: 1 }), quiet: 1 }, { m: T(V, { aug: 1, seq: 1 }), quiet: 1 }, { m: T(H, { frag: 0.5 }), quiet: 1, hook: 1 }, { m: T(H, { frag: 0.5, vary: 1 }), cad: true, quiet: 1, hook: 1 }]; // hook'un ipucu
         case 'break': case 'ambient': return [{ m: { rhy: [0], con: [0] }, quiet: 1 }, { m: T(V, { aug: 1, frag: 0.5 }), quiet: 1 }, { m: { rhy: [0], con: [1] }, quiet: 1 }, { m: T(V, { aug: 1, frag: 0.5 }), cad: true, quiet: 1 }];
-        case 'outro': return [{ m: T(H, { aug: 1 }), quiet: 1 }, { m: T(H, { aug: 1, seq: -1 }), quiet: 1 }, { m: T(V, { aug: 1 }), quiet: 1 }, { m: { rhy: [0], con: [0] }, cad: true, quiet: 1 }];
+        case 'outro': return [{ m: T(H, { aug: 1 }), quiet: 1, hook: 1 }, { m: T(H, { aug: 1, seq: -1 }), quiet: 1, hook: 1 }, { m: T(V, { aug: 1 }), quiet: 1 }, { m: { rhy: [0], con: [0] }, cad: true, quiet: 1 }];
         default: return [{ m: T(V) }, { m: T(V, { seq: 1 }) }, { m: T(V, { inv: 1 }) }, { m: T(V, { frag: 0.7 }), cad: true }];
       }
     }
@@ -1489,23 +1524,24 @@
       // Lead + SubLead
       if (want('Lead') || want('SubLead')) {
         const rngL = mulberry32(p.seed * 53 + 17 + v.Lead * 104729), H = v2Motif(rngL, style, 0.8, 'hook'), V = v2Motif(rngL, style, 0.4, 'verse');
-        let prevPitch = null;
+        let prevPitch = null; const visits = {}; p.v2.hook = { rhy: H.rhy, con: H.con, score: H.score };
         for (let blk = 0; blk * 4 < nb; blk++) {
-          const type = sectionTypeOfBar(p, blk * 4), plan = v2LeadPlan(type, H, V, rngL, style, tension[blk * 4]);
+          const type = sectionTypeOfBar(p, blk * 4), plan = v2LeadPlan(type, H, V, rngL, style, tension[blk * 4], visits[type] || 0); visits[type] = (visits[type] || 0) + 1;
           for (let k = 0; k < 4 && blk * 4 + k < nb; k++) {
             const b = blk * 4 + k, bp = plan[k], c = chordAt(b), t = tension[b], okL = want('Lead') && barOk('Lead', b), okS = want('SubLead') && barOk('SubLead', b);
             const center = 7 + Math.round((t - 0.5) * 5) + (style.hookHigh && (type === 'drop') ? 1 : 0);
             let m = bp.m; const keep = Math.max(2, Math.round(m.rhy.length * v2clamp(0.55 + dens * 0.45, 0.5, 1.2)));
             if (m.rhy.length > keep && type !== 'buildup') m = { rhy: m.rhy.slice(0, keep), con: m.con.slice(0, keep) };
             const anchor = [0, 2, 4, 6, 7, 9, 11, 13].reduce((a, d) => Math.abs(d - center) < Math.abs(a - center) ? d : a, 7), targets = m.con.map(x => anchor + x);
-            const degs = v2MelodyBar(c, m.rhy, targets, center, prevPitch, !!bp.cad, rngL, -2, 21);
+            let free = -1; for (let j = 1; j < m.con.length; j++) if (Math.abs(m.con[j] - m.con[j - 1]) >= 4) { free = j; break; }
+            const degs = v2MelodyBar(c, m.rhy, targets, center, prevPitch, !!bp.cad, rngL, -2, 21, bp.hook ? free : -1, bp.hook ? 1.6 : 1.1);
             if (okL) { clear('Lead', b); mark('Lead', b); }
             if (okS) { clear('SubLead', b); mark('SubLead', b); }
             let peak = 0; degs.forEach((d, j) => { if (v2Pitch(c, d) > v2Pitch(c, degs[peak])) peak = j; });
             degs.forEach((d, j) => {
               const s = m.rhy[j], gap = (m.rhy[j + 1] !== undefined ? m.rhy[j + 1] : 16) - s, last = j === degs.length - 1;
               let len = Math.max(1, Math.min(8, Math.round(gap * style.leg))); if (bp.cad && last) len = Math.max(2, Math.min(12, 16 - s)); if (bp.quiet) len = Math.max(len, Math.min(16 - s, Math.round(gap * 0.95)));
-              let vel = (s === 0 ? 88 : s % 8 === 0 ? 80 : s % 4 === 0 ? 74 : 66) + (j === peak ? 8 : 0) - (bp.quiet ? 14 : 0); vel = v2clamp(Math.round(vel * (0.85 + 0.3 * t)), 25, 100);
+              let vel = (s === 0 ? 88 : s % 8 === 0 ? 80 : s % 4 === 0 ? 74 : 66) + (j === peak ? 8 : 0) + (bp.hook && j === free ? 8 : 0) - (bp.quiet ? 14 : 0); vel = v2clamp(Math.round(vel * (0.85 + 0.3 * t)), 25, 100);
               if (okL) put('Lead', b * 16 + s, d, len, vel);
               if (okS && (s % 8 === 0 || (bp.cad && last)) && (type === 'drop' || type === 'buildup' || bp.quiet)) {
                 const sd = [d - 2, d - 3, d - 4].find(x => [0, 2, 4, 6].includes(v2mod7(x))); put('SubLead', b * 16 + s, sd, Math.max(len, 4), Math.round(vel * 0.78));
