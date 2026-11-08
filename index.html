@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MuseBox v4.21 - Seeded Composer</title>
+  <title>MuseBox v4.23 - Seeded Composer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -321,6 +321,8 @@
     .pk-badge { font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 999px; margin-left: 4px; border: 1px solid var(--line-2, #2a3350); } .pk-badge.free { color: #34d399; } .pk-badge.attr { color: #fbbf24; }
     .pk-err { margin-top: 6px; font-size: 11px; color: #fca5a5; } .pack-tools { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; } .pack-tools input[type=text] { width: 190px; }
     .cr-row { font-size: 12px; padding: 6px 0; border-top: 1px solid var(--line-1, #1f2740); } .cr-row a { color: #93c5fd; word-break: break-all; }
+    /* v4.23 efektler */
+    label.chk { display: flex; align-items: center; justify-content: flex-start; gap: 8px; } label.chk .hint { color: var(--text-3, #6b7592); font-size: 11px; }
 </style>
 </head>
 <body>
@@ -349,7 +351,7 @@
   <header class="topbar">
     <div class="brand">
       <button class="icon-btn ghost" id="toggleLeft" title="Show / hide controls panel" aria-label="Toggle controls panel"><svg class="ic"><use href="#i-panel"/></svg></button>
-      <span class="logo">MUSEBOX</span><span class="ver">v4.21</span>
+      <span class="logo">MUSEBOX</span><span class="ver">v4.23</span>
     </div>
 
     <div class="transport" role="group" aria-label="Transport">
@@ -434,6 +436,16 @@
           <div class="field full"><label for="mutationRate">Mutation intensity <output id="mutationVal" class="mono">25%</output></label><input type="range" id="mutationRate" min="5" max="100" value="25" step="5" title="How much Mutate changes unlocked channels"></div>
           <div class="field full"><label for="seedInput">Seed</label><div class="seed-row"><input type="number" id="seedInput" value="12345"><button class="btn sm" id="btnReloadSeed" title="Regenerate from this seed">Load</button></div></div>
           <div class="field full"><label for="soundPreset">Sound</label><select id="soundPreset"><option value="on">Genre preset</option><option value="off">Classic (flat)</option></select></div>
+        </div>
+      </details>
+
+      <details class="group">
+        <summary>Effects</summary>
+        <div class="group-body">
+          <div class="field full"><label for="fxTex">Texture</label><select id="fxTex"><option value="">Off</option><option value="vinyl">Vinyl crackle</option><option value="rain">Rain</option><option value="hiss">Tape hiss</option></select></div>
+          <div class="field full"><label for="fxTexLevel">Texture level <output id="fxTexVal" class="mono">50%</output></label><input type="range" id="fxTexLevel" min="0" max="100" value="50" step="5"></div>
+          <div class="field full"><label class="chk"><input type="checkbox" id="fxTrans"> Transitions <span class="hint" title="Riser, reverse cymbal and impact into drops; down-sweep into outros and breaks">(risers, impacts)</span></label></div>
+          <div class="field full"><label for="fxTransLevel">Transition level <output id="fxTransVal" class="mono">60%</output></label><input type="range" id="fxTransLevel" min="0" max="100" value="60" step="5"></div>
         </div>
       </details>
 
@@ -1361,6 +1373,7 @@
       ensureLengthOption(currentPattern.bars);
       if (typeof mixerSyncSection === 'function') setTimeout(() => mixerSyncSection(true), 0);
       if (typeof refreshInstUI === 'function') refreshInstUI();
+      if (typeof refreshFxUI === 'function') refreshFxUI();
       const P = currentPattern, set = (id, v) => { if (v !== undefined && v !== null) document.getElementById(id).value = v; };
       set('trackTitle', P.title); set('genreSelect', P.genre); set('progressionSelect', P.progression);
       set('chordExtensionSelect', P.chordExtension); set('lengthBars', P.bars); set('rootNoteSelect', P.rootNote);
@@ -2184,16 +2197,41 @@
     // tarayıcının önbelleğinde (Cache Storage) host'tan bağımsız anahtarlarla saklanır → çevrimdışı çalışır. Her paket bir manifest.json taşır (ad, lisans, atıf, örnek listesi).
     const PACK_KEY_ROOT = 'https://musebox.invalid/packs/', PACK_STORE = 'musebox-packs-v1', PACK_FILE_RE = /^[A-Za-z0-9_.-]{1,64}$/;
     const packs = { index: null, indexError: '', installed: {}, buffers: {}, busy: {}, warned: {} };
-    let packBase = (typeof window !== 'undefined' && window.MUSEBOX_PACK_BASE) || (() => { try { return localStorage.getItem('musebox.packBase'); } catch (e) { return null; } })() || 'packs/';
-    const packMem = new Map(); // Cache Storage yoksa (ör. file://) yalnız bu oturum için bellekte tutulur
+    const PACK_SITE_BASE = 'https://archanix.github.io/musebox/packs/'; // dosyadan (file://) açılan kopyalar paketleri yayındaki siteden indirir
+    let packBase = (typeof window !== 'undefined' && window.MUSEBOX_PACK_BASE) || (() => { try { return localStorage.getItem('musebox.packBase'); } catch (e) { return null; } })() || ((typeof location !== 'undefined' && location.protocol === 'file:') ? PACK_SITE_BASE : 'packs/');
+    const packMem = new Map(); // Cache Storage ve IndexedDB yoksa yalnız bu oturum için bellekte tutulur
     const packKey = (id, ver, file) => `${PACK_KEY_ROOT}${id}/${ver}/${file}`;
     const packUrl = rel => new URL(packBase.replace(/\/?$/, '/') + rel, (typeof location !== 'undefined' && location.href) || 'http://localhost/').href;
     function setPackBase(b) { packBase = (b || 'packs/').trim() || 'packs/'; try { localStorage.setItem('musebox.packBase', packBase); } catch (e) { } packs.index = null; }
+    // Depolama: Cache Storage (http/https) → yoksa IndexedDB (dosyadan açılan sayfada da kalıcı) → o da yoksa bellek
     async function packStore() { try { return (typeof caches !== 'undefined') ? await caches.open(PACK_STORE) : null; } catch (e) { return null; } }
-    async function storePut(key, data, type) { const c = await packStore(); if (c) await c.put(key, new Response(data, { headers: { 'Content-Type': type || 'application/octet-stream' } })); else packMem.set(key, data); }
-    async function storeGet(key) { const c = await packStore(); if (c) { const r = await c.match(key); return r ? await r.arrayBuffer() : null; } const d = packMem.get(key); return d ? (d.slice ? d.slice(0) : d) : null; }
-    async function storeKeys(prefix) { const c = await packStore(); if (c) return (await c.keys()).map(r => r.url).filter(u => u.startsWith(prefix)); return [...packMem.keys()].filter(u => u.startsWith(prefix)); }
-    async function storeDel(prefix) { const c = await packStore(); for (const k of await storeKeys(prefix)) { if (c) await c.delete(k); else packMem.delete(k); } }
+    let idbP = null;
+    function idb() { // IndexedDB: anahtar → ArrayBuffer
+      if (idbP) return idbP;
+      idbP = new Promise((res) => { try { const r = indexedDB.open('musebox-packs', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null); } catch (e) { res(null); } });
+      return idbP;
+    }
+    const idbReq = (db, mode, fn) => new Promise((res, rej) => { const tx = db.transaction('files', mode), st = tx.objectStore('files'), r = fn(st); tx.oncomplete = () => res(r && r.result); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); });
+    const toBuf = d => (typeof d === 'string') ? new TextEncoder().encode(d).buffer : d;
+    async function storePut(key, data, type) {
+      const c = await packStore(); if (c) { await c.put(key, new Response(data, { headers: { 'Content-Type': type || 'application/octet-stream' } })); return; }
+      const db = await idb(); if (db) { await idbReq(db, 'readwrite', st => st.put(toBuf(data), key)); return; }
+      packMem.set(key, toBuf(data));
+    }
+    async function storeGet(key) {
+      const c = await packStore(); if (c) { const r = await c.match(key); return r ? await r.arrayBuffer() : null; }
+      const db = await idb(); if (db) { const v = await idbReq(db, 'readonly', st => st.get(key)); return v ? v.slice(0) : null; }
+      const d = packMem.get(key); return d ? d.slice(0) : null;
+    }
+    async function storeKeys(prefix) {
+      const c = await packStore(); if (c) return (await c.keys()).map(r => r.url).filter(u => u.startsWith(prefix));
+      const db = await idb(); if (db) return (await idbReq(db, 'readonly', st => st.getAllKeys())).filter(k => typeof k === 'string' && k.startsWith(prefix));
+      return [...packMem.keys()].filter(u => u.startsWith(prefix));
+    }
+    async function storeDel(prefix) {
+      const c = await packStore(), db = c ? null : await idb();
+      for (const k of await storeKeys(prefix)) { if (c) await c.delete(k); else if (db) await idbReq(db, 'readwrite', st => st.delete(k)); else packMem.delete(k); }
+    }
 
     function packValidate(m) { // güvenilmeyen manifest: yalnız bilinen örnek çalgıları, güvenli dosya adları, makul aralıklar
       const bad = w => { throw new Error('Invalid pack manifest: ' + w); };
@@ -2215,7 +2253,7 @@
     async function packIndex(force) {
       if (packs.index && !force) return packs.index;
       try { const r = await fetch(packUrl('index.json'), { cache: 'no-cache' }); if (!r.ok) throw new Error('HTTP ' + r.status); const j = await r.json(); if (!j || !Array.isArray(j.packs)) throw new Error('bad index'); packs.index = j.packs.filter(p => /^[a-z0-9-]{1,40}$/.test(p.id) && /^[A-Za-z0-9_./-]+\/$/.test(p.path || '')); packs.indexError = ''; }
-      catch (e) { packs.index = []; packs.indexError = 'Could not reach the pack server (' + (e.message || e) + ').'; }
+      catch (e) { packs.index = []; packs.indexError = 'Could not reach the pack server (' + (e.message || e) + ').' + ((typeof location !== 'undefined' && location.protocol === 'file:') ? ' This copy is opened from a file; set Pack source to your published site (…/packs/) or open the site address instead.' : ''); }
       return packs.index;
     }
     async function packLoad(m) { // örnekleri çöz, çalgıyı etkinleştir
@@ -2277,6 +2315,78 @@
         src.connect(g); g.connect(out); src.start(time); src.stop(hold + rel + 0.02); end = hold + rel;
       });
       return end;
+    }
+
+
+    // ======== src/audio/fx.js ========
+    // ---- v4.23: Efektler: doku (plak cızırtısı, yağmur, kaset hışırtısı) ve bölüm geçişleri (riser, ters zil, darbe, downlifter).
+    // pattern.fx yalnız kullanılınca oluşur: { tex: 'vinyl'|'rain'|'hiss', texLevel: 0–100, trans: true, transLevel: 0–100 }. Yoksa hiçbir şey eklenmez (altın liste aynı).
+    // Efektler nota kanalı değildir: getStepEvents'e girmez (zaman çizelgesi / MIDI etkilenmez); çalma, önizleme ve WAV dışa aktarma fxEventsAt'i ayrıca çağırır.
+    // Tamamı tohumlu (aynı şarkı = aynı cızırtı) ve bölüm yapısına bağlı: riser + ters zil + darbe drop'a girerken, downlifter outro/break/ambient'e girerken.
+    const FX_TEX = { vinyl: 'Vinyl crackle', rain: 'Rain', hiss: 'Tape hiss' };
+    const fxHash = (seed, g, k) => { let h = (Math.imul((seed | 0) ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(g + 1, 0xc2b2ae35) ^ Math.imul(k + 7, 0x27d4eb2f)) >>> 0; h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d) >>> 0; h ^= h >>> 12; h = Math.imul(h, 0x297a2d39) >>> 0; h ^= h >>> 15; return (h >>> 0) / 4294967296; };
+    const fxPlanCache = new Map();
+    function fxPlan(p) { // bölüm sınırlarından geçiş efektleri: { kind, start, steps }
+      const bars = songBars(p), key = bars + '|' + Array.from({ length: bars }, (_, b) => sectionTypeOfBar(p, b)).join(','); if (fxPlanCache.has(key)) return fxPlanCache.get(key);
+      const plan = []; let runStart = 0;
+      for (let b = 1; b < bars; b++) {
+        const t = sectionTypeOfBar(p, b), tp = sectionTypeOfBar(p, b - 1); if (t === tp) continue;
+        const at = b * 16, prevLen = (b - runStart) * 16; runStart = b;
+        if (t === 'drop') { plan.push({ kind: 'reverse', start: at - 4, steps: 4 }); if (prevLen >= 32) plan.push({ kind: 'riser', start: at - 32, steps: 32 }); plan.push({ kind: 'impact', start: at, steps: 16 }); }
+        else if (t === 'outro' || t === 'break' || t === 'ambient') plan.push({ kind: 'downlift', start: at, steps: 16 });
+      }
+      if (fxPlanCache.size > 20) fxPlanCache.clear(); fxPlanCache.set(key, plan); return plan;
+    }
+    function fxEventsAt(p, g) {
+      const fx = p && p.fx; if (!fx) return [];
+      const out = [], stepDur = stepSeconds(p, g), seed = p.seed || 0;
+      if (fx.tex && FX_TEX[fx.tex]) {
+        const lv = (fx.texLevel === undefined ? 50 : fx.texLevel) / 100;
+        out.push({ type: 'fx', kind: 'bed-' + fx.tex, dur: stepDur + 0.05, lv, seed, g, off: 0 });
+        if (fx.tex === 'vinyl') { const n = Math.floor(fxHash(seed, g, 1) * 2.4); for (let i = 0; i < n; i++) out.push({ type: 'fx', kind: 'pop', dur: 0.012, lv, seed, g, off: fxHash(seed, g, 10 + i) * stepDur, k: i }); }
+        if (fx.tex === 'rain') { const n = Math.floor(fxHash(seed, g, 2) * 2.2); for (let i = 0; i < n; i++) out.push({ type: 'fx', kind: 'drop', dur: 0.05, lv, seed, g, off: fxHash(seed, g, 20 + i) * stepDur, k: i }); }
+      }
+      if (fx.trans) {
+        const lv = (fx.transLevel === undefined ? 60 : fx.transLevel) / 100;
+        fxPlan(p).forEach(e => { if (e.start !== g || g < 0) return; let dur = 0; for (let k = 0; k < e.steps; k++) dur += stepSeconds(p, g + k); out.push({ type: 'fx', kind: e.kind, dur, lv, seed, g, off: 0 }); });
+      }
+      return out;
+    }
+    function fxNoise(ctx) { // 4 sn tohumlu beyaz gürültü (bağlam başına bir kez)
+      if (ctx.__fxNoise) return ctx.__fxNoise;
+      const sr = ctx.sampleRate, b = ctx.createBuffer(1, sr * 4, sr), d = b.getChannelData(0); let s = 20241108;
+      for (let i = 0; i < d.length; i++) { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; d[i] = s / 4294967296 * 2 - 1; }
+      return (ctx.__fxNoise = b);
+    }
+    function playFx(ctx, dest, ev, time) {
+      const t = time + (ev.off || 0), lv = ev.lv; if (!(lv > 0)) return;
+      const noise = (start, dur, filters, gainFn) => { // gürültü → süzgeçler → kazanç zarfı
+        const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = fxNoise(ctx); src.loop = true; let node = src;
+        filters.forEach(([type, f0, f1, q]) => { const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, start); if (f1) f.frequency.exponentialRampToValueAtTime(f1, start + dur); if (q) f.Q.setValueAtTime(q, start); node.connect(f); node = f; });
+        node.connect(g); gainFn(g.gain, start, dur); g.connect(dest);
+        src.start(start, fxHash(ev.seed, ev.g, 99) * 3); src.stop(start + dur + 0.05); return g;
+      };
+      const tone = (type, f0, f1, start, dur, peak, decay) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, start); if (f1) o.frequency.exponentialRampToValueAtTime(f1, start + dur); g.gain.setValueAtTime(peak, start); g.gain.exponentialRampToValueAtTime(0.0001, start + (decay || dur)); o.connect(g); g.connect(dest); o.start(start); o.stop(start + (decay || dur) + 0.02); };
+      const D = ev.dur;
+      switch (ev.kind) {
+        case 'bed-vinyl': noise(t, D, [['highpass', 1800], ['lowpass', 9000]], (gn, s, d) => { gn.setValueAtTime(0.0001, s); gn.linearRampToValueAtTime(0.012 * lv * 2, s + 0.025); gn.setValueAtTime(0.012 * lv * 2, s + d - 0.025); gn.linearRampToValueAtTime(0.0001, s + d); }); break;
+        case 'bed-hiss': noise(t, D, [['highpass', 3500], ['lowpass', 12000]], (gn, s, d) => { gn.setValueAtTime(0.0001, s); gn.linearRampToValueAtTime(0.02 * lv * 2, s + 0.025); gn.setValueAtTime(0.02 * lv * 2, s + d - 0.025); gn.linearRampToValueAtTime(0.0001, s + d); }); break;
+        case 'bed-rain': noise(t, D, [['bandpass', 3800, 0, 0.45]], (gn, s, d) => { const a = 0.05 * lv * 2; gn.setValueAtTime(0.0001, s); gn.linearRampToValueAtTime(a, s + 0.025); gn.setValueAtTime(a, s + d - 0.025); gn.linearRampToValueAtTime(0.0001, s + d); }); break;
+        case 'pop': { const r = fxHash(ev.seed, ev.g, 40 + (ev.k || 0)), r2 = fxHash(ev.seed, ev.g, 50 + (ev.k || 0)), amp = (0.05 + 0.5 * r * r * r) * lv * 1.6; noise(t, 0.008, [['bandpass', 1500 + r2 * 5500, 0, 0.9]], (gn, s, d) => { gn.setValueAtTime(amp, s); gn.exponentialRampToValueAtTime(0.0001, s + d); }); break; }
+        case 'drop': { const r = fxHash(ev.seed, ev.g, 60 + (ev.k || 0)); tone('sine', 2600 + r * 3400, 1800 + r * 1200, t, 0.03, 0.05 * lv * 1.6, 0.03); break; }
+        case 'riser': {
+          const peak = 0.34 * lv; noise(t, D, [['bandpass', 350, 9000, 3.5]], (gn, s, d) => { gn.setValueAtTime(0.0001, s); gn.exponentialRampToValueAtTime(peak, s + d * 0.97); gn.linearRampToValueAtTime(0, s + d); });
+          const o = ctx.createOscillator(), og = ctx.createGain(), f = ctx.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(1760, t + D); f.type = 'lowpass'; f.frequency.setValueAtTime(600, t); f.frequency.exponentialRampToValueAtTime(7000, t + D);
+          og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.09 * lv, t + D * 0.97); og.gain.linearRampToValueAtTime(0, t + D); o.connect(f); f.connect(og); og.connect(dest); o.start(t); o.stop(t + D + 0.02); break;
+        }
+        case 'reverse': { const peak = 0.32 * lv; noise(t, D, [['highpass', 1500, 6500, 0.7]], (gn, s, d) => { gn.setValueAtTime(0.0001, s); gn.exponentialRampToValueAtTime(peak, s + d * 0.96); gn.linearRampToValueAtTime(0, s + d); }); break; }
+        case 'impact': {
+          tone('sine', 64, 28, t, 1.4, 0.85 * lv, 4.0); // alçak gövde ~2 sn kalır
+          noise(t, 1.2, [['lowpass', 7000, 180, 0.7]], (gn, s, d) => { gn.setValueAtTime(0.5 * lv, s); gn.exponentialRampToValueAtTime(0.0001, s + d); });
+          tone('triangle', 180, 60, t, 0.25, 0.25 * lv, 0.3); break;
+        }
+        case 'downlift': { const peak = 0.26 * lv; noise(t, D, [['bandpass', 7500, 260, 2.2]], (gn, s, d) => { gn.setValueAtTime(peak, s); gn.exponentialRampToValueAtTime(0.0001, s + d); }); tone('sine', 820, 90, t, Math.min(D, 2.2), 0.12 * lv, Math.min(D, 2.2)); break; }
+      }
     }
 
 
@@ -2435,7 +2545,8 @@
         activeLabel.textContent = `Playing: Block ${sectionIndex + 1} [${sectionRules.label.toUpperCase()}]`;
       }
 
-      const events = getStepEvents(currentPattern, globalStep);
+      const events = getStepEvents(currentPattern, globalStep), fxTime = time;
+      fxEventsAt(currentPattern, globalStep).forEach(ev => playFx(audioCtx, masterChainObj.compressor, ev, fxTime)); // v4.23: efektler (yalnız pattern.fx varsa)
       if (globalStep % 2 === 1) time += swingFor(currentPattern.genre) * stepSeconds(currentPattern, globalStep);
 
       events.forEach(ev => {
@@ -2483,6 +2594,7 @@
         let baseTime = 0;
         for (let gStep = 0; gStep < totalSteps; gStep++) {
           const events = getStepEvents(pattern, gStep);
+          fxEventsAt(pattern, gStep).forEach(fe => playFx(offlineCtx, offMaster.compressor, fe, baseTime));
           const stepDuration = stepSeconds(pattern, gStep);
           const swingOffset = (gStep % 2 === 1) ? swingFor(pattern.genre) * stepDuration : 0;
           events.forEach(ev => {
@@ -2739,6 +2851,7 @@
       if (it.tempo !== undefined && it.tempo !== null && !(Array.isArray(it.tempo.segs) && it.tempo.segs.every(s => s && [s.s0, s.s1, s.from, s.to].every(Number.isFinite) && s.s1 > s.s0 && s.from >= 30 && s.from <= 300 && s.to >= 30 && s.to <= 300))) return false;
       if (it.song !== undefined && (!it.song || !it.song.data || !CHANNELS.every(ch => Array.isArray(it.song.data[ch])))) return false;
       if (it.song && [['len', 1, 16], ['vel', 0, 100]].some(([k, lo, hi]) => it.song[k] !== undefined && !(it.song[k] && typeof it.song[k] === 'object' && Object.keys(it.song[k]).every(ch => CHANNELS.includes(ch) && it.song[k][ch] && typeof it.song[k][ch] === 'object' && Object.values(it.song[k][ch]).every(v => Number.isFinite(v) && v >= lo && v <= hi))))) return false; // v4.18: nota uzunluk / hız üstüne yazmaları
+      if (it.fx !== undefined && !(it.fx && typeof it.fx === 'object' && (it.fx.tex === undefined || FX_TEX[it.fx.tex]) && ['texLevel', 'transLevel'].every(k => it.fx[k] === undefined || (Number.isFinite(it.fx[k]) && it.fx[k] >= 0 && it.fx[k] <= 100)) && (it.fx.trans === undefined || typeof it.fx.trans === 'boolean'))) return false; // v4.23: efektler
       if (it.inst !== undefined && !(it.inst && typeof it.inst === 'object' && Object.keys(it.inst).every(ch => INST_CHANNELS.includes(ch) && INSTRUMENTS[it.inst[ch]] && it.inst[ch] !== 'synth'))) return false; // v4.19: kanal çalgıları
       if (it.mix !== undefined && it.mix !== null && !(typeof it.mix === 'object' && (!it.mix.plan || Object.values(it.mix.plan).every(a => Array.isArray(a) && a.every(v => Number.isFinite(v) && v >= 0 && v <= 1))))) return false;
       if (it.sections !== undefined && !(Array.isArray(it.sections) && it.sections.length <= 32 && it.sections.every(t => typeof t === 'string' && SECTION_TYPES[t]))) return false;
@@ -3651,6 +3764,20 @@
       if (typeof toast === 'function') toast(key && INST_SETS[key] ? `Sound set: ${INST_SETS[key].name}` : 'Back to the default synth sounds', 'info');
       if (key && INST_SETS[key] && typeof packOfferInstall === 'function') { const need = Object.values(INST_SETS[key].map).map(i => INSTRUMENTS[i]).find(I => I && I.kind === 'sampler' && !packs.installed[I.pack]); if (need) packOfferInstall(need.pack); }
     }
+    // ---- Efektler (v4.23) ----
+    function refreshFxUI() {
+      const p = currentPattern, fx = (p && p.fx) || {}, set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      set('fxTex', fx.tex || ''); set('fxTexLevel', fx.texLevel === undefined ? 50 : fx.texLevel); set('fxTransLevel', fx.transLevel === undefined ? 60 : fx.transLevel);
+      const tr = document.getElementById('fxTrans'); if (tr) tr.checked = !!fx.trans;
+      const a = document.getElementById('fxTexVal'), b = document.getElementById('fxTransVal'); if (a) a.textContent = (fx.texLevel === undefined ? 50 : fx.texLevel) + '%'; if (b) b.textContent = (fx.transLevel === undefined ? 60 : fx.transLevel) + '%';
+    }
+    function setFx(props) { // pattern.fx: yalnız kullanılan alanlar; hepsi kapalıysa nesne silinir
+      const p = currentPattern; if (!p) return; pushHistoryCoalesced();
+      const fx = Object.assign({}, p.fx || {}, props);
+      if (!fx.tex) { delete fx.tex; delete fx.texLevel; } if (!fx.trans) { delete fx.trans; delete fx.transLevel; }
+      if (Object.keys(fx).length) p.fx = fx; else delete p.fx;
+      refreshFxUI();
+    }
     function editUIInit() {
       const $ = id => document.getElementById(id), on = (id, fn) => { const e = $(id); if (e) e.addEventListener('click', fn); };
       on('selCopy', () => currentPattern && selCopy(currentPattern)); on('selPaste', () => currentPattern && selPaste(currentPattern));
@@ -3676,6 +3803,11 @@
         if ((key === 'delete' || key === 'backspace') && tlSel.length) { e.preventDefault(); e.stopImmediatePropagation(); selClearCells(p); }
       }, true);
       { const st = $('instSet'); if (st) { st.innerHTML = '<option value="">Sound set…</option><option value="synth">Default synths</option>' + Object.keys(INST_SETS).map(k => `<option value="${k}">${INST_SETS[k].name}</option>`).join(''); st.addEventListener('change', () => { if (st.value) applyInstSet(st.value); }); } }
+      { const on = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
+        on('fxTex', 'change', () => { const v = $('fxTex').value; setFx(v ? { tex: v, texLevel: parseInt($('fxTexLevel').value) } : { tex: '' }); });
+        on('fxTexLevel', 'input', () => { const p = currentPattern; if (p && p.fx && p.fx.tex) setFx({ texLevel: parseInt($('fxTexLevel').value) }); else $('fxTexVal').textContent = $('fxTexLevel').value + '%'; });
+        on('fxTrans', 'change', () => setFx($('fxTrans').checked ? { trans: true, transLevel: parseInt($('fxTransLevel').value) } : { trans: false }));
+        on('fxTransLevel', 'input', () => { const p = currentPattern; if (p && p.fx && p.fx.trans) setFx({ transLevel: parseInt($('fxTransLevel').value) }); else $('fxTransVal').textContent = $('fxTransLevel').value + '%'; }); }
       if (typeof aboutInit === 'function') aboutInit();
       updateSelBar(); setEditScope('song');
     }
